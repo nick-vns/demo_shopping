@@ -1,4 +1,4 @@
-# demo_shopping
+# Demo_shopping phone app
 
 ## Description 
 
@@ -8,3 +8,8 @@ The mobile apllication that has been built with React Native using Expo as a tes
 + React Native
 + Expo
 + Firebase
+
+## Key Features
++ Allow users to sign in anonymously 
++ Create shopping list that will be stored at Firestore
++ Each user has individual ID with their lists
