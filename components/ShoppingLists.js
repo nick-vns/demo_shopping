@@ -16,8 +16,10 @@ import {
   where,
 } from "@firebase/firestore";
 import { Alert } from "react-native";
+import AsyncStorage from "@react-native-async-storage/async-storage";
+import { async } from "@firebase/util";
 
-const ShoppingLists = ({ db, route }) => {
+const ShoppingLists = ({ db, route, isConnected }) => {
   const { userID } = route.params;
   const [lists, setLists] = useState([]);
   const [listName, setListName] = useState("");
@@ -42,23 +44,47 @@ const ShoppingLists = ({ db, route }) => {
   //     });
   //     setLists(newLists);
   //   };
+  let unsubShoppingLists;
 
   useEffect(() => {
-    const q = query(
-      collection(db, "shoppinglists"),
-      where("uid", "==", userID)
-    );
-    const unsubShoppingLists = onSnapshot(q, (documentsSnapshot) => {
-      let newLists = [];
-      documentsSnapshot.forEach((doc) => {
-        newLists.push({ id: doc.id, ...doc.data() });
+    if (isConnected === true) {
+      if (unsubShoppingLists) unsubShoppingLists();
+      unsubShoppingLists = null;
+
+      const q = query(
+        collection(db, "shoppinglists"),
+        where("uid", "==", userID)
+      );
+      unsubShoppingLists = onSnapshot(q, (documentsSnapshot) => {
+        let newLists = [];
+        documentsSnapshot.forEach((doc) => {
+          newLists.push({ id: doc.id, ...doc.data() });
+        });
+        cacheShoppingLists(newLists);
+        setLists(newLists);
       });
-      setLists(newLists);
-    });
+    } else loadCachedLists();
+
     return () => {
       if (unsubShoppingLists) unsubShoppingLists();
     };
-  }, []);
+  }, [isConnected]);
+
+  const cacheShoppingLists = async (listsToCache) => {
+    try {
+      await AsyncStorage.setItem(
+        "shopping_lists",
+        JSON.stringify(listsToCache)
+      );
+    } catch (error) {
+      console.log(error.message);
+    }
+  };
+
+  const loadCachedLists = async () => {
+    const cahchedLists = (await AsyncStorage.getItem("shopping_lists")) || [];
+    setLists(JSON.parse(cahchedLists));
+  };
 
   return (
     <View style={styles.container}>
@@ -73,39 +99,41 @@ const ShoppingLists = ({ db, route }) => {
           </View>
         )}
       />
-      <View style={styles.listForm}>
-        <TextInput
-          style={styles.listName}
-          placeholder="List Name"
-          value={listName}
-          onChangeText={setListName}
-        />
-        <TextInput
-          style={styles.item}
-          placeholder="Item #1"
-          value={item1}
-          onChangeText={setItem1}
-        />
-        <TextInput
-          style={styles.item}
-          placeholder="Item #2"
-          value={item2}
-          onChangeText={setItem2}
-        />
-        <TouchableOpacity
-          style={styles.addButton}
-          onPress={() => {
-            const newList = {
-              uid: userID,
-              name: listName,
-              items: [item1, item2],
-            };
-            addShoppingList(newList);
-          }}
-        >
-          <Text style={styles.addButtonText}>Add</Text>
-        </TouchableOpacity>
-      </View>
+      {isConnected === true ? (
+        <View style={styles.listForm}>
+          <TextInput
+            style={styles.listName}
+            placeholder="List Name"
+            value={listName}
+            onChangeText={setListName}
+          />
+          <TextInput
+            style={styles.item}
+            placeholder="Item #1"
+            value={item1}
+            onChangeText={setItem1}
+          />
+          <TextInput
+            style={styles.item}
+            placeholder="Item #2"
+            value={item2}
+            onChangeText={setItem2}
+          />
+          <TouchableOpacity
+            style={styles.addButton}
+            onPress={() => {
+              const newList = {
+                uid: userID,
+                name: listName,
+                items: [item1, item2],
+              };
+              addShoppingList(newList);
+            }}
+          >
+            <Text style={styles.addButtonText}>Add</Text>
+          </TouchableOpacity>
+        </View>
+      ) : null}
       {Platform.OS === "ios" ? (
         <KeyboardAvoidingView behavior="padding" />
       ) : null}
